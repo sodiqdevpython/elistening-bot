@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 NEW_CODE = "new_code"
+INVITE = "invite"
 
 
 def _is_public_url(url: str) -> bool:
@@ -36,9 +37,30 @@ def _is_public_url(url: str) -> bool:
 
 
 def keyboard() -> InlineKeyboardMarkup:
-    buttons = [[InlineKeyboardButton(text="🔄 Yangi kod", callback_data=NEW_CODE)]]
+    buttons = [[
+        InlineKeyboardButton(text="🔄 Yangi kod", callback_data=NEW_CODE),
+        InlineKeyboardButton(text="🎁 Taklif qilish", callback_data=INVITE),
+    ]]
     if _is_public_url(SITE_URL):
         buttons.append([InlineKeyboardButton(text="🌐 Saytga o'tish", url=SITE_URL)])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def invite_keyboard(link: str) -> InlineKeyboardMarkup:
+    """Havolani do'stga yuborish uchun tugma.
+
+    `t.me/share/url?...` — Telegram'ning o'z ulashish oynasini ochadi:
+    foydalanuvchi chat tanlaydi va tayyor xabar ketadi. Bot uchun "inline
+    mode" yoqilishi shart emas (u alohida sozlama talab qiladi va yoqilmagan
+    bo'lsa tugma umuman ishlamasdi).
+    """
+    from urllib.parse import quote
+
+    share = (
+        "https://t.me/share/url?url=" + quote(link, safe="")
+        + "&text=" + quote(SHARE_TEXT, safe="")
+    )
+    buttons = [[InlineKeyboardButton(text="📤 Do'stga yuborish", url=share)]]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -58,6 +80,11 @@ def code_text(code: str, ttl: int) -> str:
 INVITED_NOTE = (
     "🎁 Siz do'stingizning taklif havolasi orqali keldingiz — "
     "ro'yxatdan o'tsangiz u sovg'aga bir qadam yaqinlashadi."
+)
+
+SHARE_TEXT = (
+    "Ingliz tilida listening yaxshilash uchun"
+    "Shu havola orqali qo'shiling"
 )
 
 TOO_FAST = "⏳ Juda tez-tez so'ralmoqda. Bir daqiqadan keyin urinib ko'ring."
@@ -101,18 +128,14 @@ async def cmd_start(message: Message) -> None:
     await give_code(message)
 
 
-@router.message(Command("taklif"))
-@router.message(Command("invite"))
-async def cmd_invite(message: Message) -> None:
-    """O'z taklif havolangiz + nechta odam olib kelganingiz."""
-    data = await invite_summary(message.from_user.id)
-    if data is None:
-        await message.answer(
-            "Avval saytga yoki ilovaga kirib ro'yxatdan o'ting — "
-            "shundan keyin taklif havolangiz paydo bo'ladi."
-        )
-        return
+NOT_REGISTERED = (
+    "Avval saytga yoki ilovaga kirib ro'yxatdan o'ting — "
+    "shundan keyin taklif havolangiz paydo bo'ladi."
+)
 
+
+def invite_text(data: dict) -> str:
+    """Taklif xabari — `/taklif` buyrug'i va 🎁 tugmasi uchun umumiy."""
     link = data["link"] or data["code"]
     lines = [
         "🎁 <b>Do'stlaringizni taklif qiling</b>",
@@ -129,8 +152,44 @@ async def cmd_invite(message: Message) -> None:
         "",
         "Sovg'alar: har 20 ta yangi foydalanuvchi — 1 oy PLUS, "
         "har 40 tasi — 1 oy PRO.",
+        "",
+        "Do'stingiz havolani bosib botga kiradi, keyin saytda ism va "
+        "darajasini belgilaydi — taklif ANA SHUNDAN KEYIN hisobga olinadi.",
     ]
-    await message.answer("\n".join(lines))
+    return "\n".join(lines)
+
+
+@router.message(Command("taklif"))
+@router.message(Command("invite"))
+async def cmd_invite(message: Message) -> None:
+    """O'z taklif havolangiz + nechta odam olib kelganingiz."""
+    data = await invite_summary(message.from_user.id)
+    if data is None:
+        await message.answer(NOT_REGISTERED)
+        return
+    await message.answer(
+        invite_text(data),
+        reply_markup=invite_keyboard(data["link"] or data["code"]),
+    )
+
+
+@router.callback_query(F.data == INVITE)
+async def on_invite(callback: CallbackQuery) -> None:
+    """🎁 tugmasi — saytga kirmasdan ham taklif qilish mumkin bo'lsin.
+
+    Foydalanuvchi talabi: "botga ham taklif qilish uchun tugma kerak, faqat
+    saytga kirib olish shart emas". Xabar ALOHIDA yuboriladi (kod xabarini
+    tahrirlamaydi) — kod hali amal qilayotgan bo'lishi mumkin.
+    """
+    data = await invite_summary(callback.from_user.id)
+    if data is None:
+        await callback.answer(NOT_REGISTERED, show_alert=True)
+        return
+    await callback.message.answer(
+        invite_text(data),
+        reply_markup=invite_keyboard(data["link"] or data["code"]),
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data == NEW_CODE)

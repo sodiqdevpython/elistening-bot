@@ -3,6 +3,7 @@
 Barcha ORM chaqiruvlari `sync_to_async` orqali o'raladi — aiogram
 asinxron, Django ORM esa sinxron.
 """
+import logging
 import secrets
 from datetime import timedelta
 
@@ -10,6 +11,8 @@ from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from settings import OTP_LENGTH, OTP_RATE_LIMIT, OTP_TTL_SECONDS
+
+logger = logging.getLogger(__name__)
 
 
 # Bu kod(lar) hech qachon generatsiya qilinmaydi — doimiy TEST akkaunt uchun
@@ -95,6 +98,10 @@ def remember_invite(telegram_id: int, payload: str) -> bool:
     try:
         return remember_pending_invite(telegram_id, payload)
     except Exception:
+        # JIM O'TMAYMIZ: bu yerda yiqilsa taklif butunlay yo'qoladi va hech
+        # qayerda iz qolmasdi. Bot ishlashda davom etadi (odam kodini oladi),
+        # lekin logda sabab ko'rinadi.
+        logger.exception("Taklif havolasini saqlab bo'lmadi (telegram_id=%s)", telegram_id)
         return False
 
 
