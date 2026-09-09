@@ -9,6 +9,8 @@ o'sha odam saytga/ilovaga kirib ro'yxatdan o'tgach taklif hisobga olinadi
 aynan BOTGA olib boradi — aks holda kim taklif qilgani yo'qolardi.
 
 `/taklif` (yoki `/invite`) buyrug'i o'z havolangiz va hisobingizni ko'rsatadi.
+`/tolov` (yoki `/payment`) — Paynet'da kiritiladigan **To'lov ID** (chat id).
+Click orqali to'lash uchun ID kerak emas — saytdagi tugma yetarli.
 """
 import logging
 import re
@@ -22,6 +24,9 @@ from services import invite_summary, issue_code, remember_invite
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+#: Ikki qator tashlash. Escape ishlatmaymiz — shunda matn ko‘chirilganda buzilmaydi.
+BLANK_LINE = chr(10) * 2
 
 NEW_CODE = "new_code"
 INVITE = "invite"
@@ -170,6 +175,36 @@ async def cmd_invite(message: Message) -> None:
     await message.answer(
         invite_text(data),
         reply_markup=invite_keyboard(data["link"] or data["code"]),
+    )
+
+
+@router.message(Command("tolov"))
+@router.message(Command("payment"))
+async def cmd_payment(message: Message) -> None:
+    """To'lov ID — Paynet kassasida kiritiladigan raqam.
+
+    Paynet redirect'li checkout emas: foydalanuvchi Paynet ilovasida yoki
+    kassada o'zi to'laydi va bizni FAQAT shu raqam orqali taniydi (u
+    `User.telegram_id`). Raqam uzun va yodda qolmaydi, shu bois bot uni
+    istalgan paytda qaytarib bera olishi kerak.
+
+    Ataylab ALOHIDA xabar bilan yuboriladi (bitta qatorda, formatlanmagan) —
+    Telegram'da bosib nusxa olish oson bo'lsin.
+    """
+    await message.answer(
+        "<b>To'lov ID</b> — Paynet'da aynan shu raqamni kiriting:"
+    )
+    # Faqat raqam: Telegram'da ustiga bosib nusxa olinadi.
+    await message.answer(f"<code>{message.from_user.id}</code>")
+    await message.answer(
+        "Paynet ilovasi yoki kassasida <b>listening.uz</b> xizmatini tanlang, "
+        "shu ID ni kiriting va summani to'lang. Tarif bir necha soniyada "
+        "avtomatik yoqiladi." + BLANK_LINE +
+        # Click butunlay boshqa oqim: u yerda ID kerak emas, saytdagi tugma
+        # foydalanuvchini to'g'ridan-to'g'ri my.click.uz ga olib boradi.
+        "Karta bilan tezroq to'lamoqchi bo'lsangiz — saytdagi "
+        "<b>Click</b> tugmasi (bu ID kerak emas):" + BLANK_LINE +
+        f"{SITE_URL}/profile/billing"
     )
 
 
