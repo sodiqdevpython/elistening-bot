@@ -22,8 +22,9 @@ from aiogram import Bot, Dispatcher  # noqa: E402
 from aiogram.client.default import DefaultBotProperties  # noqa: E402
 from aiogram.enums import ParseMode  # noqa: E402
 
+from handlers.billing import router as billing_router, send_offer  # noqa: E402
 from handlers.common import router  # noqa: E402
-from services import mark_message, take_pending_messages  # noqa: E402
+from services import deposit_message, mark_message, take_pending_messages  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,13 +33,36 @@ logging.basicConfig(
 logger = logging.getLogger("listening.bot")
 
 
+async def send_deposit(bot: Bot, message: dict) -> bool:
+    """"Pul tushdi" — tariflar rasmi + balans + tanlash tugmalari.
+
+    Holat YUBORISH paytida yig'iladi (navbatga qo'yilgandagi emas): shu
+    to'lov bilan oldindan tanlangan tarif yoqilgan bo'lsa rasmda u "JORIY".
+    `False` — yuborish kerak emas (masalan to'lov shu orada bekor qilindi).
+    """
+    try:
+        data = await deposit_message((message["payload"] or {}).get("entry_id"))
+    except Exception:
+        logger.exception("Pul tushdi xabarini yig'ib bo'lmadi — oddiy matn yuboriladi")
+        data = {"caption": message["text"], "buttons": [], "offer": None}
+    if "skip" in data:
+        await mark_message(message["id"], ok=False, error=data["skip"], skipped=True)
+        return False
+    await send_offer(bot, message["telegram_id"], data["caption"], data["buttons"], data["offer"])
+    return True
+
+
 async def notification_worker(bot: Bot) -> None:
     """Navbatdagi bildirishnomalarni yuboradi (har 10 soniyada tekshiradi)."""
     while True:
         try:
             for message in await take_pending_messages():
                 try:
-                    await bot.send_message(message["telegram_id"], message["text"])
+                    if message["kind"] == "deposit":
+                        if not await send_deposit(bot, message):
+                            continue
+                    else:
+                        await bot.send_message(message["telegram_id"], message["text"])
                     await mark_message(message["id"], ok=True)
                 except Exception as exc:  # bloklangan foydalanuvchi va h.k.
                     logger.warning("Xabar yuborilmadi (%s): %s", message["telegram_id"], exc)
@@ -56,6 +80,9 @@ async def main() -> None:
 
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dispatcher = Dispatcher()
+    # `billing` BIRINCHI: `common` dagi "har qanday matn → kod" handleri
+    # `/balans` buyrug'ini ham yutib yuborardi.
+    dispatcher.include_router(billing_router)
     dispatcher.include_router(router)
 
     me = await bot.get_me()

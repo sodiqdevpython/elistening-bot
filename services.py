@@ -70,18 +70,69 @@ def take_pending_messages(limit: int = 30) -> list[dict]:
     messages = list(
         BotMessage.objects.filter(status=BotMessage.Status.PENDING).order_by("created_at")[:limit]
     )
-    return [{"id": m.id, "telegram_id": m.telegram_id, "text": m.text} for m in messages]
+    return [
+        {"id": m.id, "telegram_id": m.telegram_id, "text": m.text,
+         "kind": m.kind, "payload": m.payload or {}}
+        for m in messages
+    ]
 
 
 @sync_to_async
-def mark_message(message_id: int, ok: bool, error: str = "") -> None:
+def mark_message(message_id: int, ok: bool, error: str = "", skipped: bool = False) -> None:
     from apps.telegrambot.models import BotMessage
 
+    if skipped:
+        status = BotMessage.Status.SKIPPED
+    else:
+        status = BotMessage.Status.SENT if ok else BotMessage.Status.FAILED
     BotMessage.objects.filter(pk=message_id).update(
-        status=BotMessage.Status.SENT if ok else BotMessage.Status.FAILED,
+        status=status,
         error=error[:500],
         sent_at=timezone.now() if ok else None,
     )
+
+
+# ── "Pul tushdi" xabari va tarif tugmalari ───────────────────────────────
+# Mantiq butunlay backendda (`apps/billing/offer.py`) — bu yerda faqat
+# Telegram ID → foydalanuvchi va sync_to_async o'rami.
+
+def _user(telegram_id: int):
+    from apps.accounts.models import User
+
+    return User.objects.filter(telegram_id=telegram_id, is_active=True).first()
+
+
+@sync_to_async
+def deposit_message(entry_id) -> dict:
+    """`{"skip": sabab}` yoki `{"caption", "buttons", "offer"}`."""
+    from apps.billing.offer import deposit_message as build
+
+    return build(entry_id)
+
+
+@sync_to_async
+def offer_view(telegram_id: int) -> dict | None:
+    from apps.billing.offer import offer_view as build
+
+    user = _user(telegram_id)
+    return None if user is None else build(user)
+
+
+@sync_to_async
+def plan_prompt(telegram_id: int, code: str) -> dict | None:
+    from apps.billing.offer import plan_prompt as build
+
+    user = _user(telegram_id)
+    return None if user is None else build(user, code)
+
+
+@sync_to_async
+def apply_choice(telegram_id: int, code: str, expect_balance_tiyin: int) -> dict | None:
+    """Pul FAQAT shu yerda yechiladi (`wallet.choose_plan`)."""
+    from apps.billing.offer import apply_choice as run
+
+    user = _user(telegram_id)
+    return None if user is None else run(user, code, expect_balance_tiyin)
 
 
 @sync_to_async

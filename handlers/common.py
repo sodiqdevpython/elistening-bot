@@ -198,8 +198,8 @@ async def cmd_payment(message: Message) -> None:
     await message.answer(f"<code>{message.from_user.id}</code>")
     await message.answer(
         "Paynet ilovasi yoki kassasida <b>listening.uz</b> xizmatini tanlang, "
-        "shu ID ni kiriting va summani to'lang. Tarif bir necha soniyada "
-        "avtomatik yoqiladi." + BLANK_LINE +
+        "shu ID ni kiriting va summani to'lang. Pul tushishi bilan shu yerga "
+        "xabar keladi — tarifni tugma bilan tanlaysiz (/balans)." + BLANK_LINE +
         # Click butunlay boshqa oqim: u yerda ID kerak emas, saytdagi tugma
         # foydalanuvchini to'g'ridan-to'g'ri my.click.uz ga olib boradi.
         "Karta bilan tezroq to'lamoqchi bo'lsangiz — saytdagi "

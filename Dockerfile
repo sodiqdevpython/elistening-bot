@@ -6,8 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# fonts-dejavu-core — "pul tushdi" xabaridagi tariflar rasmi uchun shrift
+# (`plan_image.py`). Usiz rasm Pillow'ning ichki shriftida chiqadi.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential libpq-dev \
+        build-essential libpq-dev fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY bot/requirements.txt .
