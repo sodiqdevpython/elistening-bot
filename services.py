@@ -162,6 +162,7 @@ def invite_summary(telegram_id: int) -> dict | None:
     from django.conf import settings
 
     from apps.accounts.models import User
+    from apps.billing.models import Plan
     from apps.billing.rewards import reward_progress
 
     user = User.objects.filter(telegram_id=telegram_id).first()
@@ -171,6 +172,9 @@ def invite_summary(telegram_id: int) -> dict | None:
     data = reward_progress(user)
     data["link"] = f"https://t.me/{bot}?start={user.invite_code}" if bot else ""
     data["code"] = user.invite_code
+    # "O‘rta" / "Yuqori" — inglizcha PLUS/PRO emas (bot to'liq o'zbekcha).
+    code = data["next_reward_plan"] or ""
+    data["next_reward_name"] = Plan.STATUS_NAMES.get(code, code).replace("'", "‘")
     return data
 
 

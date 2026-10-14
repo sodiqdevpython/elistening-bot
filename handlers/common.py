@@ -88,10 +88,8 @@ INVITED_NOTE = (
     "ro'yxatdan o'tsangiz u sovg'aga bir qadam yaqinlashadi."
 )
 
-SHARE_TEXT = (
-    "Ingliz tilida listening yaxshilash uchun"
-    "Shu havola orqali qo'shiling"
-)
+# Ikki satr ilgari bo'shliqsiz qo'shilib ketardi ("...uchunShu havola").
+SHARE_TEXT = "Ingliz tilini tinglab tushunishni yaxshilash uchun shu havola orqali qo'shiling 👇"
 
 TOO_FAST = "⏳ Juda tez-tez so'ralmoqda. Bir daqiqadan keyin urinib ko'ring."
 
@@ -174,12 +172,12 @@ def invite_text(data: dict) -> str:
         f"Jami taklif qilganingiz: <b>{data['invited_total']}</b>",
     ]
     if data["next_reward_left"]:
-        plan = (data["next_reward_plan"] or "").upper()
-        lines.append(f"Yana <b>{data['next_reward_left']}</b> ta — 1 oylik {plan} sovg'a.")
+        plan = data["next_reward_name"]
+        lines.append(f"Yana <b>{data['next_reward_left']}</b> ta — 1 oylik «{plan}» tarif sovg'a.")
     lines += [
         "",
-        "Sovg'alar: har 20 ta yangi foydalanuvchi — 1 oy PLUS, "
-        "har 40 tasi — 1 oy PRO.",
+        "Sovg'alar: har 20 ta yangi foydalanuvchi — 1 oy «O‘rta» tarif, "
+        "har 40 tasi — 1 oy «Yuqori» tarif.",
         "",
         "Do'stingiz havolani bosib botga kiradi, keyin saytda ism va "
         "darajasini belgilaydi — taklif ANA SHUNDAN KEYIN hisobga olinadi.",
