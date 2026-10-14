@@ -21,6 +21,7 @@ from aiogram.types import (
     BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message,
 )
 
+from menu import BTN_BALANCE
 from plan_image import render
 from services import apply_choice, offer_view, plan_prompt
 from settings import SITE_URL
@@ -84,6 +85,7 @@ async def _edit(callback: CallbackQuery, text: str, rows: list[list[dict]], site
 
 @router.message(Command("balans"))
 @router.message(Command("tarif"))
+@router.message(F.text == BTN_BALANCE)
 async def cmd_balance(message: Message) -> None:
     """Hisob va tariflar — istalgan paytda (pul tushmasa ham)."""
     view = await offer_view(message.from_user.id)

@@ -4,10 +4,12 @@ Ishga tushirish:
     cd bot
     python main.py
 
-Bot ikki ish qiladi:
+Bot:
   1. Foydalanuvchiga 1 daqiqalik kirish kodini beradi (sayt shu kod
      orqali JWT beradi).
-  2. Backend `BotMessage` jadvaliga yozgan bildirishnomalarni yuboradi.
+  2. Doimiy menyu: profil (tarif, balans, To'lov ID), ulangan qurilmalar
+     (chiqarib yuborish bilan), balans/tariflar, taklif.
+  3. Backend `BotMessage` jadvaliga yozgan bildirishnomalarni yuboradi.
 """
 import asyncio
 import logging
@@ -24,6 +26,8 @@ from aiogram.enums import ParseMode  # noqa: E402
 
 from handlers.billing import router as billing_router, send_offer  # noqa: E402
 from handlers.common import router  # noqa: E402
+from handlers.profile import router as profile_router  # noqa: E402
+from menu import COMMANDS  # noqa: E402
 from services import deposit_message, mark_message, take_pending_messages  # noqa: E402
 
 logging.basicConfig(
@@ -80,13 +84,19 @@ async def main() -> None:
 
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dispatcher = Dispatcher()
-    # `billing` BIRINCHI: `common` dagi "har qanday matn → kod" handleri
-    # `/balans` buyrug'ini ham yutib yuborardi.
+    # `billing` va `profile` BIRINCHI: `common` dagi "har qanday matn → kod"
+    # handleri ularning buyruqlari va menyu tugmalarini yutib yuborardi.
     dispatcher.include_router(billing_router)
+    dispatcher.include_router(profile_router)
     dispatcher.include_router(router)
 
     me = await bot.get_me()
     logger.info("Bot ishga tushdi: @%s", me.username)
+    # "/" menyusi koddagi bilan bir xil bo'lsin (BotFather'da qo'lda emas).
+    try:
+        await bot.set_my_commands(COMMANDS)
+    except Exception:
+        logger.exception("Buyruqlar menyusini yozib bo'lmadi")
 
     worker = asyncio.create_task(notification_worker(bot))
     try:

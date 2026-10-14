@@ -172,3 +172,32 @@ def invite_summary(telegram_id: int) -> dict | None:
     data["link"] = f"https://t.me/{bot}?start={user.invite_code}" if bot else ""
     data["code"] = user.invite_code
     return data
+
+
+# ── Profil va qurilmalar ──────────────────────────────────────────────────
+# Matn va mantiq backendda (`apps/accounts/bot_profile.py`) — bu yerda faqat
+# Telegram ID → foydalanuvchi va sync_to_async o'rami.
+
+@sync_to_async
+def profile_view(telegram_id: int) -> dict | None:
+    from apps.accounts.bot_profile import profile_view as build
+
+    user = _user(telegram_id)
+    return None if user is None else build(user)
+
+
+@sync_to_async
+def sessions_view(telegram_id: int) -> dict | None:
+    from apps.accounts.bot_profile import sessions_view as build
+
+    user = _user(telegram_id)
+    return None if user is None else build(user)
+
+
+@sync_to_async
+def revoke_session(telegram_id: int, target: str) -> dict | None:
+    """Faqat o'z sessiyasi — backend `user` bo'yicha filtrlaydi."""
+    from apps.accounts.bot_profile import revoke
+
+    user = _user(telegram_id)
+    return None if user is None else revoke(user, target)

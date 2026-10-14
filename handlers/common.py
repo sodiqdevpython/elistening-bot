@@ -1,6 +1,6 @@
-"""Bot ikki ish qiladi: saytga kirish kodi beradi va TAKLIFni hisobga oladi.
+"""Kirish kodi, taklif va To'lov ID. Profil/qurilmalar — `handlers/profile.py`.
 
-`/start` bosilishi bilan kod yuboriladi.
+`/start` bosilishi bilan doimiy menyu (`menu.py`) va kod yuboriladi.
 
 **Taklif havolasi:** `t.me/<bot>?start=<INVITE_CODE>`. Telegram payload'ni
 `/start` argumenti sifatida beradi; biz uni `PendingInvite` ga yozamiz va
@@ -19,6 +19,7 @@ from aiogram import F, Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from menu import BTN_CODE, BTN_ID_PREFIX, BTN_INVITE, main_menu
 from settings import SITE_URL
 from services import invite_summary, issue_code, remember_invite
 
@@ -95,6 +96,21 @@ SHARE_TEXT = (
 TOO_FAST = "⏳ Juda tez-tez so'ralmoqda. Bir daqiqadan keyin urinib ko'ring."
 
 
+def menu_intro(telegram_id: int) -> str:
+    return (
+        "👋 Xush kelibsiz! Pastdagi menyudan foydalaning." + BLANK_LINE +
+        f"🆔 To'lov ID: <code>{telegram_id}</code>" + chr(10) +
+        "Paynet orqali to'lashda aynan shu raqamni kiriting."
+    )
+
+
+async def send_menu(message: Message) -> None:
+    """Doimiy menyu (pastdagi klaviatura) — `/start` da bir marta yetarli,
+    Telegram uni keyingi xabarlarda ham saqlaydi. Ilgari bot faqat kod va
+    taklif berardi; profil, tarif, qurilmalar va ID uchun joy yo'q edi."""
+    await message.answer(menu_intro(message.from_user.id), reply_markup=main_menu(message.from_user.id))
+
+
 async def give_code(message: Message) -> None:
     user = message.from_user
     code, ttl = await issue_code(user.id, user.username or "", user.first_name or "")
@@ -123,13 +139,20 @@ async def cmd_start_deeplink(message: Message, command: CommandObject) -> None:
                 await message.answer(INVITED_NOTE)
         except Exception:
             logger.exception("Taklif havolasini saqlab bo'lmadi")
+    await send_menu(message)
     await give_code(message)
 
 
 @router.message(CommandStart())
-@router.message(Command("kod"))
 async def cmd_start(message: Message) -> None:
-    """/start bosilishi bilanoq kod beriladi."""
+    """/start — menyu va darrov kod."""
+    await send_menu(message)
+    await give_code(message)
+
+
+@router.message(Command("kod"))
+@router.message(F.text == BTN_CODE)
+async def cmd_code(message: Message) -> None:
     await give_code(message)
 
 
@@ -166,6 +189,7 @@ def invite_text(data: dict) -> str:
 
 @router.message(Command("taklif"))
 @router.message(Command("invite"))
+@router.message(F.text == BTN_INVITE)
 async def cmd_invite(message: Message) -> None:
     """O'z taklif havolangiz + nechta odam olib kelganingiz."""
     data = await invite_summary(message.from_user.id)
@@ -180,6 +204,7 @@ async def cmd_invite(message: Message) -> None:
 
 @router.message(Command("tolov"))
 @router.message(Command("payment"))
+@router.message(F.text.startswith(BTN_ID_PREFIX))
 async def cmd_payment(message: Message) -> None:
     """To'lov ID — Paynet kassasida kiritiladigan raqam.
 
